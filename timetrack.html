@@ -16,8 +16,10 @@
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body { height: 100%; overscroll-behavior: none; }
     body { max-width: 480px; margin: 0 auto; background: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-    .view { display: none; }
-    .view.active { display: block; }
+    .view { display: none !important; }
+    .view.active { display: block !important; }
+    #view-timer-running.active { display: flex !important; }
+    #view-settings.active { display: flex !important; }
     .press-scale { transition: transform 0.1s ease, box-shadow 0.1s ease; }
     .press-scale:active { transform: scale(0.96); }
     input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea {
