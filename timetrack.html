@@ -14,11 +14,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-    html, body { height: 100%; overscroll-behavior: none; }
-    body { max-width: 480px; margin: 0 auto; background: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    html { height: 100%; }
+    body { height: 100dvh; overscroll-behavior: none; max-width: 480px; margin: 0 auto; background: #F1F5F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .view { display: none !important; }
     .view.active { display: block !important; }
-    #view-timer-running.active { display: flex !important; }
     #view-settings.active { display: flex !important; }
     .press-scale { transition: transform 0.1s ease, box-shadow 0.1s ease; }
     .press-scale:active { transform: scale(0.96); }
@@ -69,12 +68,16 @@ const FIREBASE_CONFIG = {
   </div>
 
   <!-- ── TIMER BANNER ── -->
-  <div id="timer-banner" class="hidden bg-blue-600 px-4 py-2.5 flex items-center justify-between cursor-pointer z-20" onclick="switchTab('home'); showView('timer-running');">
+  <div id="timer-banner" class="hidden bg-blue-600 px-4 py-2 flex items-center justify-between z-20">
     <div class="flex items-center gap-2">
-      <div class="timer-dot w-2 h-2 rounded-full bg-white"></div>
-      <span id="banner-label" class="text-white text-sm font-medium">Timer running</span>
+      <div class="timer-dot w-2 h-2 rounded-full bg-white flex-shrink-0"></div>
+      <span id="banner-label" class="text-white text-sm font-medium truncate">Timer running</span>
     </div>
-    <span id="banner-time" class="text-white text-sm font-mono font-bold tabular-nums">00:00:00</span>
+    <div class="flex items-center gap-3 flex-shrink-0">
+      <span id="banner-time" class="text-white text-sm font-mono font-bold tabular-nums">00:00:00</span>
+      <button onclick="stopTimer()" class="bg-white text-blue-700 text-xs font-bold px-3 py-1 rounded-full">Stop</button>
+      <button onclick="discardTimer()" class="text-blue-200 text-xs font-medium">✕</button>
+    </div>
   </div>
 
   <!-- ── MAIN SCROLL AREA ── -->
@@ -82,6 +85,17 @@ const FIREBASE_CONFIG = {
 
     <!-- HOME VIEW -->
     <div id="view-home" class="view active p-4">
+      <!-- Active timer card -->
+      <div id="home-timer-card" class="hidden rounded-2xl p-4 mb-3 flex items-center justify-between shadow-sm">
+        <div class="flex-1 min-w-0">
+          <div id="home-timer-badge" class="text-sm font-semibold truncate mb-0.5"></div>
+          <div id="home-timer-display" class="text-2xl font-mono font-bold tabular-nums text-gray-900">00:00:00</div>
+          <div id="home-timer-started" class="text-xs text-gray-400 mt-0.5"></div>
+        </div>
+        <button onclick="stopTimer()" class="press-scale ml-3 flex-shrink-0 px-4 py-2.5 rounded-xl bg-red-500 text-white font-bold text-sm shadow-md">
+          Stop &amp; Save
+        </button>
+      </div>
       <div id="cat-grid" class="grid grid-cols-2 gap-3 mb-3"></div>
       <button class="press-scale w-full py-4 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 text-gray-400 font-medium text-sm"
         onclick="openManualEntry()">
@@ -97,18 +111,6 @@ const FIREBASE_CONFIG = {
         onclick="startTimer(pendingCat, null)">
         Start without subcategory
       </button>
-    </div>
-
-    <!-- TIMER RUNNING VIEW -->
-    <div id="view-timer-running" class="view flex flex-col items-center px-6 pt-12 pb-6">
-      <div id="timer-cat-badge" class="px-4 py-1.5 rounded-full text-sm font-semibold mb-3"></div>
-      <div id="timer-subcat-label" class="text-gray-400 text-sm mb-8 hidden"></div>
-      <div id="timer-display" class="font-mono font-bold text-gray-900 tabular-nums mb-2" style="font-size:64px; letter-spacing:-2px;">00:00:00</div>
-      <div id="timer-started" class="text-gray-400 text-sm mb-12"></div>
-      <button onclick="stopTimer()" class="press-scale w-full max-w-xs py-5 rounded-2xl bg-red-500 text-white font-bold text-lg shadow-lg mb-3" style="box-shadow: 0 8px 24px rgba(239,68,68,0.35)">
-        Stop &amp; Save
-      </button>
-      <button onclick="discardTimer()" class="text-gray-400 text-sm py-2">Discard</button>
     </div>
 
     <!-- MANUAL ENTRY VIEW -->
@@ -552,7 +554,7 @@ function startTimer(cat, sub) {
   if (S.db) S.db.collection('meta').doc('timer').set(timerData);
   else persistLocal();
   syncTimerUI();
-  showView('timer-running');
+  switchTab('home');
 }
 
 function stopTimer() {
@@ -580,9 +582,8 @@ function stopTimer() {
 }
 
 function discardTimer() {
-  if (!confirm('Discard this timer?')) return;
   clearActiveTimer();
-  goBack();
+  switchTab('home');
 }
 
 function clearActiveTimer() {
@@ -595,29 +596,34 @@ function clearActiveTimer() {
 
 function syncTimerUI() {
   const banner = document.getElementById('timer-banner');
+  const card = document.getElementById('home-timer-card');
   if (S.timerTick) { clearInterval(S.timerTick); S.timerTick = null; }
 
   if (!S.activeTimer) {
     banner.classList.add('hidden');
+    card.classList.add('hidden');
     return;
   }
 
   banner.classList.remove('hidden');
+  card.classList.remove('hidden');
 
   const label = S.activeTimer.subName
     ? `${S.activeTimer.catName} · ${S.activeTimer.subName}`
     : S.activeTimer.catName;
-  document.getElementById('banner-label').textContent = label;
 
-  // Timer running view
+  document.getElementById('banner-label').textContent = `${S.activeTimer.catEmoji} ${label}`;
+
+  // Home timer card
   const c = colorOf(S.activeTimer.catColor);
-  const badge = document.getElementById('timer-cat-badge');
-  badge.textContent = `${S.activeTimer.catEmoji} ${label}`;
-  badge.style.cssText = `background:${c.bg}; color:${c.text};`;
+  card.style.cssText = `background:${c.bg};`;
+  const homeBadge = document.getElementById('home-timer-badge');
+  homeBadge.textContent = `${S.activeTimer.catEmoji} ${label}`;
+  homeBadge.style.color = c.text;
 
-  const startedEl = document.getElementById('timer-started');
   const startTime = new Date(S.activeTimer.startISO);
-  startedEl.textContent = `Started at ${startTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
+  document.getElementById('home-timer-started').textContent =
+    `Started at ${startTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}`;
 
   const tick = () => {
     if (!S.activeTimer) return;
@@ -626,7 +632,7 @@ function syncTimerUI() {
     const m = String(Math.floor(elapsed % 3600 / 60)).padStart(2,'0');
     const s = String(elapsed % 60).padStart(2,'0');
     const str = `${h}:${m}:${s}`;
-    document.getElementById('timer-display').textContent = str;
+    document.getElementById('home-timer-display').textContent = str;
     document.getElementById('banner-time').textContent = str;
   };
   tick();
